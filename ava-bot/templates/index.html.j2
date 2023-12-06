@@ -1,0 +1,10 @@
+{% extends "base.html.j2" %}
+
+{% block content %}
+<div class="w-2/3 mx-auto item-center justify-center p-2 mt-2">
+    <h1 class="text-center text-2xl">Hello World</h1>
+    <div hx-ext="sse" sse-connect="/chats" sse-swap="message" hx-swap="afterend">
+        Hello SSE message
+    </div>
+</div>
+{% endblock %}
