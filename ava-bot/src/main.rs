@@ -1,12 +1,15 @@
 use anyhow::Result;
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::services::ServeDir;
 use tracing::info;
 
-use ava_bot::handlers::{chats_handlers, index_page};
+use ava_bot::handlers::{assistant_handler, chats_handlers, index_page};
 
 #[derive(Debug, Parser)]
 #[clap(name = "ava")]
@@ -30,6 +33,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/", get(index_page))
         .route("/chats", get(chats_handlers))
+        .route("/assistant", post(assistant_handler))
         .nest_service("/public", ServeDir::new("./public"))
         .with_state(state);
 

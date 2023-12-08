@@ -1,10 +1,71 @@
 {% extends "base.html.j2" %}
 
 {% block content %}
-<div class="w-2/3 mx-auto item-center justify-center p-2 mt-2">
+<div class="w-2/3 mx-auto items-center justify-center p-2 mt-2">
     <h1 class="text-center text-2xl">Hello World</h1>
     <div hx-ext="sse" sse-connect="/chats" sse-swap="message" hx-swap="afterend">
         Hello SSE message
     </div>
+    <div class="px-2 mt-4 flex items-center justify-center" x-data="recodingState()">
+        <button class="w-16 h-16 rounded-full text-white" @keyup.space.window="toggleRecording()"
+            :class="{'bg-red-800 animate-pulse': isRecording, 'bg-red-500': !isRecording}">
+            <i class="fa-solid fa-microphone fa-xl"></i>
+        </button>
+    </div>
 </div>
+{% endblock %}
+{% block script %}
+<script lang="javascript">
+    const recodingState = () => {
+        return {
+            isRecording: false,
+            toggleRecording: () => {
+                if (this.isRecording) {
+                    recorder.stop()
+                } else {
+                    recorder.start()
+                }
+                this.isRecording = !this.isRecording
+            }
+        }
+    }
+    const recorder = {
+        init: async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(stream);
+
+            this.mediaRecorder.ondataavailable = (e) => {
+                recordedChunks.push(e.data)
+            }
+
+            this.mediaRecorder.onstop = async () => {
+                console.log(recordedChunks)
+                const blob = new Blob(recordedChunks, { type: 'audio/mp3' })
+                this.recordedChunks = []
+
+                // Send the audio data to the server
+                const formData = new FormData()
+                formData.append('audio', blob)
+                const resp = await fetch('/assistant', {
+                    method: 'POST',
+                    body: formData
+                })
+                console.log(resp)
+            }
+        },
+        recordedChunks: [],
+        mediaRecorder: null,
+        start: () => {
+            this.recordedChunks = []
+            this.mediaRecorder.start();
+        },
+        stop: () => {
+            this.mediaRecorder.stop()
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await recorder.init()
+    })
+</script>
 {% endblock %}
