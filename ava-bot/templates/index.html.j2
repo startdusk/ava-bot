@@ -2,17 +2,21 @@
 
 {% block content %}
 <div class="w-2/3 mx-auto items-center justify-center p-2 mt-2">
-    <h1 class="text-center text-2xl">Hello World</h1>
-    <div hx-ext="sse" sse-connect="/chats" sse-swap="message" hx-swap="afterend">
-        Hello SSE message
-    </div>
+    <h1 class="text-center text-2xl">Ava Bot</h1>
+    <ol class="relative border-s border-gray-200 dark:border-gray-700" hx-ext="sse" sse-connect="/chats"
+        sse-swap="message" hx-swap="beforeend">
+    </ol>
     <div class="px-2 mt-4 flex items-center justify-center" x-data="recodingState()">
         <button class="w-16 h-16 rounded-full text-white" @keyup.space.window="toggleRecording()"
             :class="{'bg-red-800 animate-pulse': isRecording, 'bg-red-500': !isRecording}">
             <i class="fa-solid fa-microphone fa-xl"></i>
         </button>
     </div>
+    <div class="p-2 flex items-center justify-center text-center" hx-ext="sse" sse-connect="/signals"
+        sse-swap="message">
+    </div>
 </div>
+
 {% endblock %}
 {% block script %}
 <script lang="javascript">

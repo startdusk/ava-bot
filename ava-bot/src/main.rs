@@ -4,25 +4,15 @@ use axum::{
     Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
-use clap::Parser;
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::services::ServeDir;
 use tracing::info;
 
-use ava_bot::handlers::{assistant_handler, chats_handlers, index_page};
-
-#[derive(Debug, Parser)]
-#[clap(name = "ava")]
-pub(crate) struct Args {
-    #[clap(short, long, default_value = "8080")]
-    port: u16,
-
-    #[clap(short, long, default_value = "./.certs")]
-    cert_path: String,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct AppState {}
+use ava_bot::{
+    handlers::{assistant_handler, chats_handler, index_page, signals_handler},
+    AppState, Args,
+};
+use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -32,9 +22,11 @@ async fn main() -> Result<()> {
     let state = Arc::new(AppState::default());
     let app = Router::new()
         .route("/", get(index_page))
-        .route("/chats", get(chats_handlers))
+        .route("/chats", get(chats_handler))
+        .route("/signals", get(signals_handler))
         .route("/assistant", post(assistant_handler))
         .nest_service("/public", ServeDir::new("./public"))
+        .nest_service("/assets", ServeDir::new("/tmp/ava-bot"))
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));

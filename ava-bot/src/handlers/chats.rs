@@ -1,19 +1,55 @@
-use std::{convert::Infallible, time::Duration};
+use std::{convert::Infallible, sync::Arc, time::Duration};
 
-use axum::response::{
-    sse::{Event, KeepAlive},
-    IntoResponse, Sse,
+use axum::{
+    extract::State,
+    response::{
+        sse::{Event, KeepAlive},
+        IntoResponse, Sse,
+    },
 };
-use futures::stream;
-use tokio_stream::StreamExt as _;
+use dashmap::DashMap;
+use tokio::sync::broadcast;
+use tokio_stream::{wrappers::BroadcastStream, StreamExt as _};
 use tracing::info;
 
-pub async fn chats_handlers() -> impl IntoResponse {
-    info!("user connected");
+use crate::{extractors::AppContext, AppState};
 
-    let stream = stream::repeat_with(|| Event::default().data("hi"))
-        .map(Ok::<_, Infallible>)
-        .throttle(Duration::from_secs(1));
+const MAX_EVENTS: usize = 128;
+
+pub async fn signals_handler(
+    context: AppContext,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    info!("user connected for signals");
+    sse_handler(context, &state.signals).await
+}
+
+pub async fn chats_handler(
+    context: AppContext,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    info!("user connected for chats");
+    sse_handler(context, &state.chats).await
+}
+
+pub async fn sse_handler(
+    context: AppContext,
+    map: &DashMap<String, broadcast::Sender<String>>,
+) -> impl IntoResponse {
+    let device_id = &context.device_id;
+    let rx = if let Some(tx) = map.get(device_id) {
+        tx.subscribe()
+    } else {
+        let (tx, rx) = broadcast::channel(MAX_EVENTS);
+        map.insert(device_id.to_string(), tx);
+        rx
+    };
+
+    // wrap receiver in a stream
+    let stream = BroadcastStream::new(rx)
+        .filter_map(|v| v.ok())
+        .map(|v| Event::default().data(v))
+        .map(Ok::<_, Infallible>);
 
     Sse::new(stream).keep_alive(
         KeepAlive::new()
