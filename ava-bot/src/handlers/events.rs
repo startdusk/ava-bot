@@ -14,27 +14,21 @@ use tracing::info;
 
 use crate::{extractors::AppContext, AppState};
 
+use super::AssistantEvent;
+
 const MAX_EVENTS: usize = 128;
 
-pub async fn signals_handler(
-    context: AppContext,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    info!("user connected for signals");
-    sse_handler(context, &state.signals).await
-}
-
-pub async fn chats_handler(
+pub async fn events_handler(
     context: AppContext,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     info!("user connected for chats");
-    sse_handler(context, &state.chats).await
+    sse_handler(context, &state.events).await
 }
 
 pub async fn sse_handler(
     context: AppContext,
-    map: &DashMap<String, broadcast::Sender<String>>,
+    map: &DashMap<String, broadcast::Sender<AssistantEvent>>,
 ) -> impl IntoResponse {
     let device_id = &context.device_id;
     let rx = if let Some(tx) = map.get(device_id) {
@@ -48,7 +42,17 @@ pub async fn sse_handler(
     // wrap receiver in a stream
     let stream = BroadcastStream::new(rx)
         .filter_map(|v| v.ok())
-        .map(|v| Event::default().data(v))
+        .map(|v| {
+            let (event, id) = match &v {
+                AssistantEvent::Signal(_) => ("signal", "".to_string()),
+                AssistantEvent::InputSkeleton(_) => ("input_skeleton", "".to_string()),
+                AssistantEvent::Input(v) => ("input", v.id.to_string()),
+                AssistantEvent::ReplySkeleton(_) => ("reply_skeleton", "".to_string()),
+                AssistantEvent::Reply(v) => ("reply", v.id.to_string()),
+            };
+            let data: String = v.into();
+            Event::default().data(data).event(event).id(id)
+        })
         .map(Ok::<_, Infallible>);
 
     Sse::new(stream).keep_alive(

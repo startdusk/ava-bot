@@ -1,6 +1,7 @@
 mod error;
 pub mod extractors;
 pub mod handlers;
+pub mod tools;
 
 use std::{
     env,
@@ -10,6 +11,7 @@ use std::{
 use clap::Parser;
 use dashmap::DashMap;
 pub use error::AppError;
+use handlers::AssistantEvent;
 use llm_sdk::LlmSdk;
 use tokio::sync::broadcast;
 
@@ -29,8 +31,7 @@ pub struct Args {
 pub struct AppState {
     pub(crate) llm: LlmSdk,
     // each device_id has a channel to send messages to
-    pub(crate) signals: DashMap<String, broadcast::Sender<String>>,
-    pub(crate) chats: DashMap<String, broadcast::Sender<String>>,
+    pub(crate) events: DashMap<String, broadcast::Sender<AssistantEvent>>,
 }
 
 impl Default for AppState {
@@ -41,8 +42,7 @@ impl Default for AppState {
                 env::var("OPENAI_API_KEY").unwrap(),
                 3,
             ),
-            signals: DashMap::new(),
-            chats: DashMap::new(),
+            events: DashMap::new(),
         }
     }
 }
@@ -55,4 +55,14 @@ pub fn audio_path(device_id: &str, name: &str) -> PathBuf {
 
 pub fn audio_url(device_id: &str, name: &str) -> String {
     format!("/assets/audio/{}/{}.mp3", device_id, name)
+}
+
+pub fn image_path(device_id: &str, name: &str) -> PathBuf {
+    Path::new("/tmp/ava-bot/image")
+        .join(device_id)
+        .join(format!("{}.png", name))
+}
+
+pub fn image_url(device_id: &str, name: &str) -> String {
+    format!("/assets/image/{}/{}.png", device_id, name)
 }
